@@ -6,8 +6,11 @@ import os
 
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage
 from langchain_core.runnables import Runnable
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
 from carbon_agent.mcp_tools import load_carbon_tools
 
@@ -63,3 +66,30 @@ async def build_agent() -> Runnable:
     model = _build_model()
     checkpointer = InMemorySaver()  # swap for a durable store in prod (see Defend-it)
     return create_agent(model, tools, system_prompt=SYSTEM_PROMPT, checkpointer=checkpointer)
+
+
+async def build_graph() -> Runnable:
+    """Hand-built equivalent of build_agent: an explicit ReAct StateGraph.
+
+    Same behavior as the prebuilt create_agent, but the loop is spelled out so
+    the nodes, the routing condition, and the state model are all visible and
+    owned. MessagesState supplies the `messages` key with an add_messages
+    reducer, so each node returning {"messages": [...]} appends rather than
+    overwrites — that append semantics is the whole reason the loop accumulates
+    context instead of clobbering it.
+    """
+    tools = await load_carbon_tools()
+    model = _build_model().bind_tools(tools)  # bind_tools: the model can now emit tool calls
+
+    def call_model(state: MessagesState) -> dict:
+        """The agent node: prepend the system prompt, call the LLM once."""
+        messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
+        return {"messages": [model.invoke(messages)]}
+
+    graph = StateGraph(MessagesState)
+    graph.add_node("agent", call_model)
+    graph.add_node("tools", ToolNode(tools))  # executes tool calls, appends ToolMessages
+    graph.add_edge(START, "agent")
+    graph.add_conditional_edges("agent", tools_condition)  # tool calls? -> "tools", else -> END
+    graph.add_edge("tools", "agent")  # results flow back; the loop closes here
+    return graph.compile(checkpointer=InMemorySaver())
