@@ -66,11 +66,11 @@ async def build_agent() -> Runnable:
     """
     tools = await load_carbon_tools()
     model = _build_model()
-    checkpointer = InMemorySaver()  # swap for a durable store in prod (see Defend-it)
+    checkpointer = InMemorySaver()  # swap for a durable store in prod
     return create_agent(model, tools, system_prompt=SYSTEM_PROMPT, checkpointer=checkpointer)
 
 
-async def build_graph() -> Runnable:
+async def build_graph(tools: list | None = None, model: BaseChatModel | None = None) -> Runnable:
     """Hand-built equivalent of build_agent: an explicit ReAct StateGraph.
 
     Same behavior as the prebuilt create_agent, but the loop is spelled out so
@@ -80,13 +80,16 @@ async def build_graph() -> Runnable:
     overwrites — that append semantics is the whole reason the loop accumulates
     context instead of clobbering it.
     """
-    tools = await load_carbon_tools()
-    model = _build_model().bind_tools(tools)  # bind_tools: the model can now emit tool calls
+    if tools is None:
+        tools = await load_carbon_tools()
+    if model is None:
+        model = _build_model()
+    model_with_tools = model.bind_tools(tools)  # bind_tools: the model can now emit tool calls
 
     def call_model(state: MessagesState) -> dict:
         """The agent node: prepend the system prompt, call the LLM once."""
         messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-        return {"messages": [model.invoke(messages)]}
+        return {"messages": [model_with_tools.invoke(messages)]}
 
     graph = StateGraph(MessagesState)
     graph.add_node("agent", call_model)
