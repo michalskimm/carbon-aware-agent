@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import os
+from typing import TypedDict
 
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import Runnable
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.types import interrupt
 
 from carbon_agent.mcp_tools import load_carbon_tools
 
@@ -93,3 +95,41 @@ async def build_graph() -> Runnable:
     graph.add_conditional_edges("agent", tools_condition)  # tool calls? -> "tools", else -> END
     graph.add_edge("tools", "agent")  # results flow back; the loop closes here
     return graph.compile(checkpointer=InMemorySaver())
+
+
+class ScheduleState(TypedDict):
+    """State for the schedule-commit flow."""
+
+    window: str  # the proposed greenest window (set upstream)
+    committed: bool  # whether the human approved the commit
+
+
+def propose(state: ScheduleState) -> dict:
+    """Stand-in for the agent deciding on a window (real version calls the tools)."""
+    return {"window": state.get("windows", "02:00-05:00 (lowest forecast intensity)")}
+
+
+def commit_schedule(state: ScheduleState) -> dict:
+    """Gate the irreversible action behind human approval."""
+    decision = interrupt(
+        {
+            "action": "commit_schedule",
+            "window": state["window"],
+            "prompt": "Approve running the job in this window?",
+        }
+    )
+    # decision is whatever the caller passed to Command(resume=...)
+    if decision == "approve":
+        return {"committed": True}
+    return {"committed": False}
+
+
+def build_schedule_graph() -> Runnable:
+    """A minimal commit-gated graph: propose -> (interrupt) commit."""
+    g = StateGraph(ScheduleState)
+    g.add_node("propose", propose)
+    g.add_node("commit", commit_schedule)
+    g.add_edge(START, "propose")
+    g.add_edge("propose", "commit")
+    g.add_edge("commit", END)
+    return g.compile(checkpointer=InMemorySaver())
