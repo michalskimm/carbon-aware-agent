@@ -14,11 +14,13 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from carbon_agent.agent import build_agent
+from carbon_agent.observability import configure_observability, tracer
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Build the agent once at startup; store on app.state for handlers."""
+    configure_observability()
     app.state.agent = await build_agent()
     yield
     # No async teardown: InMemorySaver holds no connections to close.
@@ -52,8 +54,9 @@ async def health() -> dict:
 async def chat(req: ChatRequest) -> ChatResponse:
     thread_id = req.thread_id or str(uuid.uuid4())
     cfg = {"configurable": {"thread_id": thread_id}}
-    agent = app.state.agent
-    out = await agent.ainvoke({"messages": [HumanMessage(req.message)]}, cfg)
+    with tracer.start_as_current_span("agent.chat") as span:
+        span.set_attribute("thread_id", thread_id)
+        out = await app.state.agent.ainvoke({"messages": [HumanMessage(req.message)]}, cfg)
     return ChatResponse(reply=out["messages"][-1].content, thread_id=thread_id)
 
 
