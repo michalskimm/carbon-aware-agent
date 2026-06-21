@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" role="img">
+  <title>carbon-aware-agent architecture</title>
+  <desc>A client posts a message to the FastAPI gateway, which invokes a LangGraph agent. The agent loops between an OpenAI model and tools loaded over HTTPS plus JWT from the carbon-aware-mcp server; an approval gate guards the schedule commit before the reply returns. OpenTelemetry traces the request and a resilience layer retries transient MCP failures.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Client -->
+  <rect x="40" y="30" width="150" height="52" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text x="115" y="52" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2C2C2A">Client</text>
+  <text x="115" y="68" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">POST /chat</text>
+
+  <!-- Gateway -->
+  <rect x="265" y="30" width="170" height="52" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text x="350" y="52" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0C447C">FastAPI gateway</text>
+  <text x="350" y="68" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">streaming, lifespan</text>
+
+  <!-- Agent -->
+  <rect x="265" y="150" width="170" height="52" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+  <text x="350" y="172" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#3C3489">LangGraph agent</text>
+  <text x="350" y="188" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#534AB7">ReAct tool loop</text>
+
+  <!-- LLM -->
+  <rect x="40" y="270" width="150" height="52" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="115" y="292" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">OpenAI model</text>
+  <text x="115" y="308" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">pluggable provider</text>
+
+  <!-- Approval gate -->
+  <rect x="265" y="270" width="170" height="52" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+  <text x="350" y="292" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#633806">Approval gate</text>
+  <text x="350" y="308" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#854F0B">human-in-the-loop</text>
+
+  <!-- MCP server -->
+  <rect x="490" y="270" width="150" height="52" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+  <text x="565" y="292" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#085041">carbon-aware-mcp</text>
+  <text x="565" y="308" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">deployed MCP server</text>
+
+  <!-- Client -> Gateway -->
+  <line x1="190" y1="56" x2="257" y2="56" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+
+  <!-- Gateway <-> Agent (down and up) -->
+  <line x1="338" y1="82" x2="338" y2="144" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+  <line x1="362" y1="144" x2="362" y2="82" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+  <text x="406" y="116" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">reply</text>
+
+  <!-- Agent <-> LLM -->
+  <line x1="278" y1="202" x2="150" y2="264" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+  <line x1="170" y1="264" x2="298" y2="202" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent -> Approval gate -->
+  <line x1="350" y1="202" x2="350" y2="264" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent -> MCP (via tools, through resilience) -->
+  <line x1="422" y1="202" x2="550" y2="264" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+  <line x1="530" y1="264" x2="402" y2="202" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow)"/>
+  <text x="525" y="232" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">HTTPS + JWT</text>
+
+  <!-- Cross-cutting note -->
+  <rect x="40" y="360" width="600" height="44" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <text x="340" y="376" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2C2C2A">Cross-cutting</text>
+  <text x="340" y="392" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">OpenTelemetry tracing  ·  resilience retries  ·  guardrails  ·  containerized on Azure</text>
+</svg>
