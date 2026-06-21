@@ -93,6 +93,9 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 
 
 def main() -> None:
+    from dotenv import load_dotenv
+
+    load_dotenv()  # load .env if present; real env vars still win
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8001")))
