@@ -9,5 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+# Secrets — never commit
+.env
+
 # Personal development notes
 notes.local.md
