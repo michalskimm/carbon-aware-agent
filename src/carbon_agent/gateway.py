@@ -7,11 +7,14 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from carbon_agent.agent import build_agent
 from carbon_agent.observability import configure_observability, tracer
@@ -26,11 +29,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # No async teardown: InMemorySaver holds no connections to close.
 
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(title="carbon-aware-agent", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
     thread_id: str | None = None
 
 
@@ -51,7 +58,8 @@ async def health() -> dict:
 
 
 @app.post("/chat")
-async def chat(req: ChatRequest) -> ChatResponse:
+@limiter.limit("5/minute")
+async def chat(request: Request, req: ChatRequest) -> ChatResponse:
     thread_id = req.thread_id or str(uuid.uuid4())
     cfg = {"configurable": {"thread_id": thread_id}}
     with tracer.start_as_current_span("agent.chat") as span:
