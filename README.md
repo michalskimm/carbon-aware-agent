@@ -19,7 +19,8 @@ curl -X POST https://carbon-aware-agent.happystone-b5035f44.polandcentral.azurec
 ```json
 {
   "reply": "The greenest time to run your 3-hour job today is from 09:30 to 12:30, when the average carbon intensity is lowest at 76.2 gCO₂/kWh.",
-  "thread_id": "f69fd440-d82c-4d4a-8322-d94e0f0b826e"
+  "thread_id": "f69fd440-d82c-4d4a-8322-d94e0f0b826e",
+  "tools_used": ["greenest_window"]
 }
 ```
 
@@ -93,6 +94,10 @@ it isn't, the agent starts but tool calls fail).
   The same container runs anywhere.
 - **CI on GitHub** — ruff lint/format and pytest on every push, on a clean checkout (the
   environment that catches import-time configuration bugs).
+- **The response reports tools that *executed*, not tools the model *intended*** — `/chat`
+  returns a `tools_used` list built from successful `ToolMessage`s, excluding errored ones.
+  A planned-but-failed tool call is therefore *not* reported, so a consumer (or an eval) can
+  tell when an answer came back ungrounded. Reporting intent instead would mask that failure.
 
 ## Guardrails
 The `/chat` endpoint is public and unauthenticated by design (a click-to-try demo). Misuse
