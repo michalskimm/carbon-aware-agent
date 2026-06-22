@@ -1,5 +1,5 @@
 # carbon-aware-agent
-v0.1.0
+v0.1.1
 
 A remote ReAct agent server connected to a [carbon-aware-mcp](https://github.com/michalskimm/carbon-aware-mcp)
 server that exposes live UK grid carbon-intensity tools, so the LLM agent can schedule a
