@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -18,6 +18,17 @@ from slowapi.util import get_remote_address
 
 from carbon_agent.agent import build_agent
 from carbon_agent.observability import configure_observability, tracer
+
+
+def _executed_tools(messages: list) -> list[str]:
+    """Names of tools that ran successfully this turn (excludes errored ToolMessages)."""
+    return [
+        m.name
+        for m in messages
+        if isinstance(m, ToolMessage)
+        and m.name is not None
+        and getattr(m, "status", "success") != "error"
+    ]
 
 
 @asynccontextmanager
@@ -44,6 +55,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     thread_id: str
+    tools_used: list[str] = []
 
 
 @app.get("/")
@@ -65,7 +77,11 @@ async def chat(request: Request, req: ChatRequest) -> ChatResponse:
     with tracer.start_as_current_span("agent.chat") as span:
         span.set_attribute("thread_id", thread_id)
         out = await app.state.agent.ainvoke({"messages": [HumanMessage(req.message)]}, cfg)
-    return ChatResponse(reply=out["messages"][-1].content, thread_id=thread_id)
+    return ChatResponse(
+        reply=out["messages"][-1].content,
+        thread_id=thread_id,
+        tools_used=_executed_tools(out["messages"]),
+    )
 
 
 async def _token_stream(
