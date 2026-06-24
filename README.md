@@ -110,8 +110,9 @@ is bounded by five layers rather than by auth:
 4. **Bounded blast radius** — the MCP tools are read-only and the one mutating action is
    HITL-gated, so a misbehaving or prompt-injected agent can't delete data, spend money, or
    mutate state.
-5. **System-prompt scoping** — off-topic requests are briefly declined and redirected. (A
-   soft guardrail — the hard limits are 1–4.)
+5. **System-prompt scoping** — the agent answers in-domain questions (grid carbon intensity,
+   generation mix, scheduling, and explaining those concepts) and briefly declines unrelated
+   topics. (A soft guardrail — the hard limits are 1–4.)
 
 ## Scaling notes
 Not built in v0.1 — what production would need:

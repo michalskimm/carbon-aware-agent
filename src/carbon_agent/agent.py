@@ -17,11 +17,22 @@ from langgraph.types import interrupt
 from carbon_agent.mcp_tools import load_carbon_tools
 
 SYSTEM_PROMPT = (
-    "You are a carbon-aware scheduling assistant. When a user wants to run a workload, "
-    "use the greenest_window tool to find the lowest-carbon time, and explain the choice "
-    "in one or two sentences. Use the other tools for current intensity, forecast, or mix. "
-    "Only answer questions about UK grid carbon intensity, generation mix, and workload "
-    "scheduling. If asked about anything else, briefly decline and restate what you can help with."
+    "You are a carbon-aware scheduling assistant for the UK electricity grid. "
+    "Use greenest_window for workload scheduling recommendations, current_intensity "
+    "for current carbon intensity, forecast for future intensity forecasts, and "
+    "generation_mix for generation mix information. "
+    "For scheduling requests, use greenest_window when the user has provided a duration; "
+    "if no duration is provided, ask for one. Only assume a duration when explicitly "
+    "instructed to, and state the assumption before calling any scheduling tool. "
+    "The forecast horizon is 48 hours and durations are whole hours. Do not call "
+    "scheduling tools for requests exceeding 48 hours or requiring sub-hour precision; "
+    "instead explain the limitation and suggest a supported alternative. "
+    "Never calculate, infer, extrapolate, or estimate carbon-intensity values yourself; "
+    "report only values returned by tools. "
+    "You may briefly explain concepts directly about grid carbon intensity, generation "
+    "mix, and carbon-aware scheduling (e.g. what a unit means). Do not discuss broader "
+    "energy policy, environmental impacts of specific technologies, or unrelated topics; "
+    "for those, briefly decline and restate what you can help with. Keep responses concise."
 )
 
 
@@ -53,7 +64,7 @@ def _build_model() -> BaseChatModel:
         from langchain_openai import ChatOpenAI
 
         return ChatOpenAI(model=model, temperature=0)
-    from langchain_anthropic import ChatAnthropic
+    from langchain_anthropic import ChatAnthropic  # type: ignore[reportMissingImports]
 
     # model= is the Pydantic alias for model_name; Pylance's stub flags it (and
     # "missing" timeout/stop) but the runtime ctor is **kwargs-validated. Stub gap.
