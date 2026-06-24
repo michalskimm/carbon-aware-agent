@@ -40,7 +40,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # No async teardown: InMemorySaver holds no connections to close.
 
 
-limiter = Limiter(key_func=get_remote_address)
+def _rate_limit_key(request: Request) -> str:
+    """Per-IP limit for public traffic; exempt the trusted eval client.
+
+    The eval is a known consumer, not the abuse the public limit guards against,
+    so it bypasses via a shared-secret header. A unique key per eval request puts
+    each in its own bucket, so it is effectively unlimited. Public client IPs keep
+    the 5/min limit unchanged.
+    """
+    bypass = os.environ.get("EVAL_BYPASS_TOKEN")
+    if bypass and request.headers.get("X-Eval-Token") == bypass:
+        return f"eval-{uuid.uuid4()}"
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 
 app = FastAPI(title="carbon-aware-agent", lifespan=lifespan)
 app.state.limiter = limiter
